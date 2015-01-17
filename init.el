@@ -1,31 +1,20 @@
-;; normal ppl OS X keybindings
-(global-set-key [(meta a)] 'mark-whole-buffer)
-(global-set-key [(meta v)] 'yank)
-(global-set-key [(meta c)] 'kill-ring-save)
-;; this conflicts with M-X, which we'll alias as space bar in evil
-(global-set-key [(meta x)] 'kill-region)
-(global-set-key [(meta s)] 'save-buffer)
-;; (global-set-key [(meta l)] 'goto-line)
-(global-set-key [(meta o)] 'find-file)
-(global-set-key [(meta f)] 'isearch-forward)
-(global-set-key [(meta g)] 'isearch-repeat-forward)
-(global-set-key [(meta q)] 'save-buffers-kill-emacs)
-;; (global-set-key [(meta w)]
-;;                 (lambda () (interactive) (kill-buffer (current-buffer))))
-(global-set-key [(meta w)] 'delete-window)
+;; emacs daemon
+(server-start)
 
 ;; packages, lots of them
 (require 'package)
 (add-to-list 'package-archives
              '("melpa" . "http://melpa.milkbox.net/packages/") t)
-;; (add-to-list 'package-archives
-;;              '("marmalade" . "http://marmalade-repo.org/packages/") t)
+(add-to-list 'package-archives
+             '("marmalade" . "http://marmalade-repo.org/packages/") t)
 
 ;; among other things, package-initialize fills the list of installed packages
 (package-initialize)
 
 (add-to-list 'load-path "~/.emacs.d/use-package")
 (require 'use-package)
+
+(load-file "~/.emacs.d/st.el")
 
 (use-package linum-relative
   :ensure t
@@ -42,15 +31,21 @@
   :ensure t
   :init
   (progn
-    ;; (powerline-default-theme)
     (powerline-center-evil-theme)))
+
+(use-package multiple-cursors
+  :ensure t
+  :init
+  (progn
+    (global-set-key [(meta shift l)] 'mc/edit-lines)
+    (global-set-key (kbd "M-d") 'mc/mark-next-like-this)
+    ;; (global-set-key (kbd "M-D") 'mc/mark-previous-like-this)
+    (global-set-key [(meta shift g)] 'mc/mark-all-like-this)))
 
 (use-package color-theme-sanityinc-tomorrow
   :ensure t
   :init
   (progn
-    ;; no need to enable it. only theme so far so got it by default
-    ;; at least I think that's what's happening
     ;; (color-theme-sanityinc-tomorrow-night)
     ))
 
@@ -61,18 +56,18 @@
   (progn
     (add-hook 'prog-mode-hook 'rainbow-identifiers-mode)
     (setq rainbow-identifiers-choose-face-function 'rainbow-identifiers-cie-l*a*b*-choose-face
-        rainbow-identifiers-cie-l*a*b*-lightness 70
-        rainbow-identifiers-cie-l*a*b*-saturation 30
-        rainbow-identifiers-cie-l*a*b*-color-count 20
-        ;; override theme faces
-        rainbow-identifiers-faces-to-override '(highlight-quoted-symbol
-                                                font-lock-variable-name-face
-                                                font-lock-function-name-face
-                                                font-lock-type-face
-                                                js2-function-param
-                                                js2-external-variable
-                                                js2-instance-member
-                                                js2-private-function-call))))
+          rainbow-identifiers-cie-l*a*b*-lightness 70
+          rainbow-identifiers-cie-l*a*b*-saturation 30
+          rainbow-identifiers-cie-l*a*b*-color-count 20
+          ;; override theme faces
+          rainbow-identifiers-faces-to-override '(highlight-quoted-symbol
+                                                  font-lock-variable-name-face
+                                                  font-lock-function-name-face
+                                                  font-lock-type-face
+                                                  js2-function-param
+                                                  js2-external-variable
+                                                  js2-instance-member
+                                                  js2-private-function-call))))
 
 (use-package rainbow-delimiters
   :ensure t
@@ -92,12 +87,6 @@
   (progn
     (indent-guide-global-mode)
     (setq indent-guide-recursive t)))
-
-(use-package golden-ratio
-  :ensure t
-  :init
-  (progn
-    (golden-ratio-mode 1)))
 
 ;; this doesn't seem to work for now. i want cursor to stay put when I scroll past it
 ;; (use-package scroll-restore
@@ -152,6 +141,18 @@
 
 ;; TODO: check evil-exchange, evil-snipe, evil-lisp-state, evil-escape
 
+(global-set-key [(meta ctrl j)] 'transpose-lines)
+
+(defun duplicate-line()
+  (interactive)
+  (move-beginning-of-line 1)
+  (kill-line)
+  (yank)
+  (open-line 1)
+  (next-line 1)
+  (yank))
+(global-set-key (kbd "M-D") 'duplicate-line)
+
 ;; git-related
 (use-package git-messenger
   :ensure t
@@ -177,162 +178,38 @@
   (progn
     (git-timemachine-mode t)))
 
+;; ST real fuzzy matching for finding files in project
+(use-package helm
+  :ensure t
+  :init
+  (progn
+    (helm-mode 1)
+    (global-set-key [(meta shift p)] 'helm-M-x)
+    ;; I don't even know what half of these do. but why the heck don't emacs ppl get ST's fuzzy match
+    (setq helm-recentf t
+          ;; see fiplr below
+          helm-M-x-fuzzy-match t
+          helm-buffers-fuzzy-matching t
+          helm-locate-fuzzy-match t
+          helm-semantic-fuzzy-match t
+          helm-imenu-fuzzy-match t
+          helm-apropos-fuzzy-match t
+          helm-lisp-fuzzy-completion t)
+    ))
+
+;; currently this is better than helm's, since it actually lists all files, and doesn't hide them behind folders
+(use-package fiplr
+  :ensure t
+  :init
+  (progn
+    (global-set-key [(meta o)] 'fiplr-find-file)
+    (setq fiplr-ignored-globs '((directories (".git" ".svn" "node_modules" "build"))
+                                (files ("*.jpg" "*.png" "*.zip" "*~"))))))
+
+
 ;; language-specific
-;; js
-
-;; TODO: check if all we need here is the minor mode for syntax checks
-(use-package js2-mode
-  :ensure t
-  :init
-  (progn
-    (add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
-    (add-to-list 'auto-mode-alist '("\\.jsx\\'" . js2-mode))
-    (add-to-list 'auto-mode-alist '("\\.json\\'" . js2-mode))
-    (add-to-list 'interpreter-mode-alist '("node" . js2-mode))))
-
-;; http://ergoemacs.org/emacs/elisp_run_current_file.html
-(defun run-node-on-current-file ()
-  (interactive)
-  (save-buffer)
-  (progn
-    (message "Running…")
-    (shell-command
-     (concat "node" " \"" (buffer-file-name) "\"")
-     "*xah-run-current-file output*")))
-
-(add-hook 'js2-mode-hook
-          (lambda ()
-            (evil-leader/set-key "RET" 'run-node-on-current-file)))
-
-;; just doesn't work well for some reason
-;; (use-package js-comint
-;;   :ensure t
-;;   :init
-;;   (progn
-;;     (setq inferior-js-program-command "node --interactive")
-;;     ;; http://stackoverflow.com/questions/13862471/using-node-js-with-js-comint-in-emacs
-;;     (setenv "NODE_NO_READLINE" "1")
-;;     ;; emacs ask confirmation for killing processes before exit. annoying. kill
-;;     (add-hook 'comint-exec-hook
-;;       (lambda ()
-;;         (set-process-query-on-exit-flag (get-buffer-process (current-buffer)) nil)))
-;;     (add-hook 'js2-mode-hook
-;;       (lambda ()
-;;         (evil-leader/set-key "RET" 'js-send-buffer)))))
-
-;; (use-package nodejs-repl
-;;   :ensure t
-;;   :init
-;;   (progn
-;;     ;; emacs ask confirmation for killing processes before exit. annoying. kill
-;;     (add-hook 'comint-exec-hook
-;;       (lambda ()
-;;         (set-process-query-on-exit-flag (get-buffer-process (current-buffer)) nil)))))
-
-
-;; lisps
-
-;; (defun my-paredit-map ()
-;;   (progn
-;;     (local-set-key "(" 'paredit-open-round)
-;;     (local-set-key ")" 'paredit-close-round)
-;;     (local-set-key "M-)" 'paredit-close-round-and-newline)
-;;     (local-set-key "[" 'paredit-open-square)
-;;     (local-set-key "]" 'paredit-close-square)
-;;     (local-set-key "{" 'paredit-open-curly)
-;;     (local-set-key "}" 'paredit-close-curly-and-newline)
-;;     (local-set-key "\"" 'paredit-doublequote)
-;;     (local-set-key "M-\"" 'paredit-meta-doublequote)
-;;     (local-set-key "\\" 'paredit-backslash)
-;;     (local-set-key ";" 'paredit-semicolon)
-;;     (local-set-key "M-;" 'paredit-comment-dwim)))
-
-(defun enable-lisp-stuff ()
-  (enable-paredit-mode)
-  (evil-leader/set-key "RET" 'eval-region)
-  )
-
-(defun enable-custom-paredit ()
-  (enable-paredit-mode)
-  
-  ;; don't override my preferred keybindings
-  (define-key paredit-mode-map (kbd "M-s") nil)
-  (define-key paredit-mode-map (kbd "M-q") nil)
-  ;; (local-set-key (kbd "M-sasd") 'paredit-splice-sexp)
-  
-  ;; I like these bindings better
-  (local-set-key "RET" 'paredit-newline)
-
-  ;; (my-paredit-map)
-  )
-
-(use-package paredit
-  :ensure t
-  :init
-  (progn
-    (add-hook 'emacs-lisp-mode-hook 'enable-lisp-stuff)
-    (add-hook 'js2-mode-hook
-              (lambda ()
-                (enable-custom-paredit)
-                ;; js2-mode overrides this I think. paredit has it better
-                (local-set-key "{" 'paredit-open-curly)
-                (local-set-key "}" 'paredit-close-curly-and-newline)))))
-
-;; Prevent the cursor from blinking
-(blink-cursor-mode 0)
-;; Don't use messages that you don't read
-(setq initial-scratch-message "")
-(setq inhibit-startup-message t)
-;; kill audio/visual alarm when erroring
-(setq ring-bell-function 'ignore)
-
-(tool-bar-mode 0)
-(global-linum-mode 1)
-(set-fringe-mode 0)
-;; this needs to go before (show-paren-mode). it highlights the parens without delay
-(setq show-paren-delay 0)
-(show-paren-mode 1)
-;; delect a selection by typing (why is this not the default?)
-(delete-selection-mode 1)
-;; don't show current line in bar. i use powerline in the packages above so this doesn't work
-;; (line-number-mode 0)
-;; window size & position
-(add-to-list 'default-frame-alist '(height . 999))
-(add-to-list 'default-frame-alist '(width . 160))
-(add-to-list 'default-frame-alist '(top . 0))
-(add-to-list 'default-frame-alist '(left . 0))
-;; white scroll bar. not sure how to change color. ugly
-(scroll-bar-mode 0)
-
-
-;; sublime texty & common sense stuff
-
-;; window management
-(global-set-key [(meta \{)] (lambda () (interactive)
-  (previous-multiframe-window)
-  (golden-ratio)))
-(global-set-key [(meta \})] (lambda () (interactive)
-  (next-multiframe-window)
-  (golden-ratio)))
-(global-set-key [(meta n)] 'split-window-right)
-;; command palette
-(global-set-key [(meta shift p)] 'execute-extended-command)
-(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
-;; preserve cursor position when scrolling...
-(setq scroll-preserve-screen-position t)
-;; tab: use 2 spaces
-;; setq-default allows it to be overridden
-(setq-default indent-tabs-mode nil)
-(setq tab-width 2)
-
-;; visual aliases sugar
-(global-prettify-symbols-mode 1)
-(add-hook 'js2-mode-hook
-  (lambda ()
-    (push '("function" . ?λ) prettify-symbols-alist)
-    (push '("return" . ?←) prettify-symbols-alist)
-    (push '("<=" . ?≤) prettify-symbols-alist)
-    (push '(">=" . ?≥) prettify-symbols-alist)))
+(load-file "~/.emacs.d/js.el")
+(load-file "~/.emacs.d/lisp.el")
 
 ;; emacs generated stuff
 (custom-set-variables
